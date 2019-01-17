@@ -5,11 +5,12 @@ import os
 import json
 import base64
 import pathlib
+import pyperclip
 
 from getpass import getpass
 from argparse import ArgumentParser
 from urllib.parse import parse_qs, urlparse, unquote
-from util import protect, totp
+from util import protect, totp, storage
 
 def _parse_qrcode(qrcode_file):
     """This function uses the binary "zbarimg" to parse the QR code from the
@@ -38,10 +39,10 @@ def _parse_qrcode(qrcode_file):
 
     return query_params["secret"][0], 0
 
-def register(qrcode_file, qry_file="qry.json"):
+def register(qrcode_file, qry_file=None):
     """This function registers a QR Code by extracting the secret, encrypting it
-    and writing it to a config file "qry_file" which defaults to "qry.json" in
-    the current directory
+    and writing it to a config file "qry_file" which defaults to
+    "get_default_config_path()"
 
     Arguments:
         qrcode_file (str): path to the QR Code PNG image file
@@ -49,6 +50,9 @@ def register(qrcode_file, qry_file="qry.json"):
 
     Returns:
         int: returns an error code value, 0 if no errors"""
+
+    if qry_file is None:
+        qry_file = storage.get_default_config_path()
 
     key, err = _parse_qrcode(qrcode_file)
     if err:
@@ -62,37 +66,41 @@ def register(qrcode_file, qry_file="qry.json"):
     mp["key"] = base64.b64encode(token).decode("utf-8")
     mp["salt"] = base64.b64encode(salt).decode("utf-8")
 
-    print (mp)
-
     with open(qry_file, "w") as wp:
         json.dump(mp, wp)
 
     del mp, salt, token, key
     return 0
 
-def run(qry_file="qry.json"):
+def gen(qry_file=None):
     """This function is used to generate the TOTP. It parses the "qry_file" and
     gets the key and salt values, propmts the user for password and decrypts the
     values. Once decrypted successfully, then generates the OTP and returns
 
     Arguments:
-        qry_file (str): path from where to read the config, defaults to "qry.json"
-            in the current directory
+        qry_file (str): path from where to read the config, defaults to
+            "get_default_config_path()" in the current directory
 
     Returns:
         str: The OTP as a string"""
 
+    if qry_file is None:
+        qry_file = storage.get_default_config_path()
+
     f = pathlib.Path(qry_file)
     if not f.exists():
-        print ("file {} does not exist".format(qrcode_file))
-        return None, errno.ENOENT
+        sys.stderr.write("file {} does not exist\n".format(qrcode_file))
+        sys.stderr.flush()
+        return "", errno.ENOENT
 
     mp = {}
     with open(qry_file, "r") as rp:
         mp = json.load(rp)
 
     if mp["alg"] != "cryptography.Fernet":
-        raise NotImplementedError("Encryption algorithm {} is not supported".format(mp["alg"]))
+        sys.stderr.write("Encryption algorithm {} is not supported\n".format(mp["alg"]))
+        sys.stderr.flush()
+        return "", errno.ENOSYS
 
     p = getpass("Input password for the qry file: ")
     key = protect.access(base64.b64decode(mp["salt"]), base64.b64decode(mp["key"]), str.encode(p))
@@ -101,7 +109,7 @@ def run(qry_file="qry.json"):
 
     del p, key, mp
 
-    return token
+    return token, 0
 
 
 if __name__ == '__main__':
@@ -109,16 +117,26 @@ if __name__ == '__main__':
     subparsers = p.add_subparsers(help="operations", dest="cmd")
 
     reg_p = subparsers.add_parser("reg")
-    reg_p.add_argument("-c", "--config", dest="r_config", default="qry.json")
+    reg_p.add_argument("-c", "--config", dest="r_config", default=storage.get_default_config_path())
     reg_p.add_argument("-f", "--qrcode", dest="r_qrcode", default="qrcode.png")
 
     reg_o = subparsers.add_parser("gen")
-    reg_o.add_argument("-c", "--config", dest="g_config", default="qry.json")
+    reg_o.add_argument("-c", "--config", dest="g_config", default=storage.get_default_config_path())
 
     args = p.parse_args(sys.argv[1:])
 
     if args.cmd == "reg":
+        storage.set_storage_directory()
         err = register(args.r_qrcode, args.r_config)
         print ("Registration successfull !!" if err == 0 else "Registration failed")
     else:
-        print (run(args.g_config))
+        token, err = gen(args.g_config)
+        pyperclip.copy(token)
+        sys.stderr.write("Token copied to clipboard: ")
+        sys.stderr.flush()
+
+        sys.stdout.write(token)
+        sys.stdout.flush()
+
+        sys.stderr.write("\n")
+        sys.stderr.flush()
