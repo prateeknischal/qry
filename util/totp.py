@@ -68,11 +68,12 @@ def _pre_process_key(key):
         bytes: byte array representation of the key"""
     key_len = len(key)
 
-    # pad the key
-    padding = key_len + (8 - (key_len % 8))
+    if key_len % 8 != 0:
+        # pad the key
+        padding = key_len + (8 - (key_len % 8))
 
-    # make the key of appropriate size with the base32 padding char
-    key = key.ljust(padding, b'=')
+        # make the key of appropriate size with the base32 padding char
+        key = key.ljust(padding, b'=')
 
     return base64.b32decode(key)
 
