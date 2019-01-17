@@ -12,6 +12,16 @@ from urllib.parse import parse_qs, urlparse, unquote
 from util import protect, totp
 
 def _parse_qrcode(qrcode_file):
+    """This function uses the binary "zbarimg" to parse the QR code from the
+    provided file as an argument and returns the secret key from the QR code.
+
+    Arguments:
+        qrcode_file (str): path to the QR Code PNG image file
+
+    Returns:
+        tuple (str, int): returns a tuple with the secret and any error codes, If
+        the error code is fatal then the str part will be None."""
+
     f = pathlib.Path(qrcode_file)
     if not f.is_file():
         print ("file {} does not exist".format(qrcode_file))
@@ -28,7 +38,18 @@ def _parse_qrcode(qrcode_file):
 
     return query_params["secret"][0], 0
 
-def register(qrcode_file, config_file="qry.json"):
+def register(qrcode_file, qry_file="qry.json"):
+    """This function registers a QR Code by extracting the secret, encrypting it
+    and writing it to a config file "qry_file" which defaults to "qry.json" in
+    the current directory
+
+    Arguments:
+        qrcode_file (str): path to the QR Code PNG image file
+        qry_file (str): path where to write the config
+
+    Returns:
+        int: returns an error code value, 0 if no errors"""
+
     key, err = _parse_qrcode(qrcode_file)
     if err:
         print ("Failed to register, error code:", err)
@@ -43,13 +64,24 @@ def register(qrcode_file, config_file="qry.json"):
 
     print (mp)
 
-    with open(config_file, "w") as wp:
+    with open(qry_file, "w") as wp:
         json.dump(mp, wp)
 
     del mp, salt, token, key
     return 0
 
 def run(qry_file="qry.json"):
+    """This function is used to generate the TOTP. It parses the "qry_file" and
+    gets the key and salt values, propmts the user for password and decrypts the
+    values. Once decrypted successfully, then generates the OTP and returns
+
+    Arguments:
+        qry_file (str): path from where to read the config, defaults to "qry.json"
+            in the current directory
+
+    Returns:
+        str: The OTP as a string"""
+
     f = pathlib.Path(qry_file)
     if not f.exists():
         print ("file {} does not exist".format(qrcode_file))
