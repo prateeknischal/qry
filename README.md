@@ -47,6 +47,11 @@ $ pip install -r requirements.txt
 
 ### Usage
 The flow is such.
+```bash
+$ cd <dir>
+$ git clone https://github.com/prateeknischal/qry.git
+$ cd qry
+```
 1. Register the QR Code
 ```bash
 $ python3 qry.py reg --config /path/to/qry.json --qrcode /path/to/qrcode.png
@@ -57,8 +62,14 @@ This step will create a file called `qry.json` by default which contains your se
 ```bash
 $ python3 qry.py gen --config /path/to/qry.json
 ```
-This step will prompt user for the password to decode the secret in the file `qry.json`. If the password is correct it will generate an OTP, copyi and print it on the console.
-
+This step will prompt user for the password to decode the secret in the file `qry.json`. If the password is correct it will generate an OTP, copy in the clipboard and print it on the console. To make it more simple.
+```bash
+$ echo 'alias qry="python3 <dir>/qry/qry.py gen"' >> ~/.bash_profile
+$ source ~/.bash_profile
+$ qry
+Input password for the qry file:
+Token copied to clipboard: xxxxxx
+```
 
 #### TODO
 1. Proper error handling, messages to stderr and error code propagation
