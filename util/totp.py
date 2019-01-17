@@ -1,12 +1,12 @@
 #!/usr/bin/python3
 
+import base64
 import hashlib
 import hmac
-import struct
 import os
-import time
+import struct
 import sys
-import base64
+import time
 
 
 def _otp(key, counter, hash="SHA1", otp_len=6):

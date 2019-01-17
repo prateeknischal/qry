@@ -1,11 +1,12 @@
-import pathlib
 import base64
 import os
+import pathlib
 
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
-from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
 
 def file_to_bytes(filename):
     """This function is used to convert the image file into an array of bytes

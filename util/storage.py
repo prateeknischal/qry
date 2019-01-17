@@ -1,7 +1,8 @@
+import errno
 import os
 import os.path
 import pathlib
-import errno
+
 
 def set_storage_directory():
     user_home = os.path.expanduser("~/") # Thanks to @susam

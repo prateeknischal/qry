@@ -1,16 +1,17 @@
+import base64
+import errno
+import json
+import os
+import pathlib
 import subprocess as bash
 import sys
-import errno
-import os
-import json
-import base64
-import pathlib
-import pyperclip
-
-from getpass import getpass
 from argparse import ArgumentParser
-from urllib.parse import parse_qs, urlparse, unquote
-from util import protect, totp, storage
+from getpass import getpass
+from urllib.parse import parse_qs, unquote, urlparse
+
+import pyperclip
+from util import protect, storage, totp
+
 
 def _parse_qrcode(qrcode_file):
     """This function uses the binary "zbarimg" to parse the QR code from the
