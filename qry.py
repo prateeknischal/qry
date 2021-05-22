@@ -26,13 +26,13 @@ def _parse_qrcode(qrcode_file):
 
     f = pathlib.Path(qrcode_file)
     if not f.is_file():
-        print ("file {} does not exist".format(qrcode_file))
+        print("file {} does not exist".format(qrcode_file))
         return None, errno.ENOENT
 
     resp = bash.run(["zbarimg", "-q", qrcode_file], stdout=bash.PIPE)
 
     if resp.returncode != 0:
-        print ("zbarimg failed to parse the {}".format(qrcode_file))
+        print("zbarimg failed to parse the {}".format(qrcode_file))
         return None, returncode
 
     otpauth_url = unquote(str(resp.stdout))
@@ -40,7 +40,8 @@ def _parse_qrcode(qrcode_file):
 
     return query_params["secret"][0], 0
 
-def register(qrcode_file, qry_file=None):
+
+def register(qrcode_file, qry_file=None, no_pass=False):
     """This function registers a QR Code by extracting the secret, encrypting it
     and writing it to a config file "qry_file" which defaults to
     "get_default_config_path()"
@@ -57,10 +58,13 @@ def register(qrcode_file, qry_file=None):
 
     key, err = _parse_qrcode(qrcode_file)
     if err:
-        print ("Failed to register, error code:", err)
+        print("Failed to register, error code:", err)
         return err
 
-    p = getpass("Input password for the seed: ")
+    p = ''
+    if not no_pass:
+        p = getpass("Input password for the seed: ")
+
     salt, token = protect.protect(str.encode(key), str.encode(p))
     mp = {}
     mp["alg"] = "cryptography.Fernet"
@@ -73,7 +77,8 @@ def register(qrcode_file, qry_file=None):
     del mp, salt, token, key
     return 0
 
-def gen(qry_file=None):
+
+def gen(qry_file=None, no_pass=False):
     """This function is used to generate the TOTP. It parses the "qry_file" and
     gets the key and salt values, propmts the user for password and decrypts the
     values. Once decrypted successfully, then generates the OTP and returns
@@ -99,12 +104,16 @@ def gen(qry_file=None):
         mp = json.load(rp)
 
     if mp["alg"] != "cryptography.Fernet":
-        sys.stderr.write("Encryption algorithm {} is not supported\n".format(mp["alg"]))
+        sys.stderr.write(
+            "Encryption algorithm {} is not supported\n".format(mp["alg"]))
         sys.stderr.flush()
         return "", errno.ENOSYS
 
-    p = getpass("Input password for the qry file: ")
-    key = protect.access(base64.b64decode(mp["salt"]), base64.b64decode(mp["key"]), str.encode(p))
+    p = ''
+    if not no_pass:
+        p = getpass("Input password for the qry file: ")
+    key = protect.access(base64.b64decode(
+        mp["salt"]), base64.b64decode(mp["key"]), str.encode(p))
 
     token = totp.otp(key)
 
@@ -118,26 +127,29 @@ if __name__ == '__main__':
     subparsers = p.add_subparsers(help="operations", dest="cmd")
 
     reg_p = subparsers.add_parser("reg")
-    reg_p.add_argument("-c", "--config", dest="r_config", default=storage.get_default_config_path())
+    reg_p.add_argument("-c", "--config", dest="r_config",
+                       default=storage.get_default_config_path())
     reg_p.add_argument("-f", "--qrcode", dest="r_qrcode", default="qrcode.png")
+    reg_p.add_argument("-i", "--nopass", dest="no_pass", action="store_true")
 
     reg_o = subparsers.add_parser("gen")
-    reg_o.add_argument("-c", "--config", dest="g_config", default=storage.get_default_config_path())
+    reg_o.add_argument("-c", "--config", dest="g_config",
+                       default=storage.get_default_config_path())
+    reg_o.add_argument("-i", "--nopass", dest="no_pass", action="store_true")
 
     args = p.parse_args(sys.argv[1:])
 
     if args.cmd == "reg":
         storage.set_storage_directory()
-        err = register(args.r_qrcode, args.r_config)
-        print ("Registration successfull !!" if err == 0 else "Registration failed")
+        err = register(args.r_qrcode, args.r_config, args.no_pass)
+        print("Registration successfull !!" if err ==
+              0 else "Registration failed")
     else:
-        token, err = gen(args.g_config)
+        token, err = gen(args.g_config, args.no_pass)
         pyperclip.copy(token)
-        sys.stderr.write("Token copied to clipboard: ")
-        sys.stderr.flush()
+        if args.no_pass:
+            sys.stdout.write(token)
+        else:
+            sys.stderr.write("Token copied to clipboard: {}\n".format(token))
 
-        sys.stdout.write(token)
-        sys.stdout.flush()
-
-        sys.stderr.write("\n")
         sys.stderr.flush()
